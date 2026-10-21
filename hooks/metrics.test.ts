@@ -1,6 +1,6 @@
 import { test, expect } from 'claude-code/testing'
 
-import { barCells, cpuPercent, levelColor, parseCpu, parseDisk, parseMem } from './metrics'
+import { barCells, cpuPercent, levelColor, parseCpu, parseDisk, parseMem, parseTime } from './metrics'
 
 test('test_should_compute_cpu_percent_when_two_samples_differ', () => {
   const a = parseCpu('cpu  100 0 100 800 0 0 0 0\n')!
@@ -47,4 +47,14 @@ test('test_should_compute_free_space_when_parsing_df_output', () => {
 test('test_should_return_null_when_df_output_is_invalid', () => {
   expect(parseDisk('')).toBe(null)
   expect(parseDisk('erro\n')).toBe(null)
+})
+
+test('test_should_read_date_and_time_when_parsing_date_output', () => {
+  expect(parseTime('21/10/2026 14:07\n')).toBe('21/10/2026 14:07')
+})
+
+test('test_should_return_null_when_date_output_is_invalid', () => {
+  expect(parseTime('')).toBe(null)
+  expect(parseTime('date: erro\n')).toBe(null)
+  expect(parseTime('14:07\n')).toBe(null)
 })

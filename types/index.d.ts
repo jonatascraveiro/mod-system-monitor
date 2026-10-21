@@ -1,4 +1,5 @@
 export type Stats = {
+  time: string | null
   costUsd: number | null
   contextPercent: number | null
   fiveHour: number | null

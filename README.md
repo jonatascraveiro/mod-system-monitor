@@ -3,7 +3,7 @@
 Mod do Claude Code que desenha **uma faixa acima do prompt** com o consumo da sessão e o uso da máquina, sempre em uma linha:
 
 ```
-Sessão $0.88 · ctx 47% · 5h 9% · 7d 31% │ CPU ███████░░░ 93% │ RAM ██████░░░░ 66% 10.3/15.6 GiB │ Swap ░░░░░░░░░░ 0% desativado │ Disco ██████░░░░ 73% 92.8 GiB livres
+21/10/2026 14:07 │ Sessão $0.88 · ctx 47% · 5h 9% · 7d 31% │ CPU ███████░░░ 93% │ RAM ██████░░░░ 66% 10.3/15.6 GiB │ Swap ░░░░░░░░░░ 0% desativado │ Disco ██████░░░░ 73% 92.8 GiB livres
 ```
 
 ![Demonstração](docs/demo.gif)
@@ -14,6 +14,7 @@ Sessão $0.88 · ctx 47% · 5h 9% · 7d 31% │ CPU ███████░░�
 
 | Item | Origem |
 | --- | --- |
+| Data e hora corrente (DD/MM/AAAA HH:MM) | `date`, no fuso local da máquina |
 | Custo (`$`), contexto (`ctx`), limites de 5h e 7d | uso da sessão no Claude Code |
 | CPU | `/proc/stat`, variação entre duas leituras |
 | RAM e Swap | `/proc/meminfo` (RAM usada = total − disponível) |
@@ -71,7 +72,7 @@ ou `claude plugin uninstall sysmon-band`.
 .claude-plugin/plugin.json        manifesto do mod
 .claude-plugin/marketplace.json   permite instalar pelo repositório
 hooks/register.tsx                sessão, timer de 2 s e desenho da faixa
-hooks/metrics.ts                  leitura de CPU/RAM/Swap, cores e barras
+hooks/metrics.ts                  leitura de hora/CPU/RAM/Swap, cores e barras
 hooks/metrics.test.ts             testes das métricas
 types/index.d.ts                  contrato do estado do mod
 ```

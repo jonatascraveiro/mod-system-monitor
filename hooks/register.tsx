@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Stats } from '../types'
-import { barCells, cpuPercent, gib, levelColor, parseCpu, parseDisk, parseMem } from './metrics'
+import { barCells, cpuPercent, gib, levelColor, parseCpu, parseDisk, parseMem, parseTime } from './metrics'
 import type { CpuTimes } from './metrics'
 
 const stats = atom({ plugin: 'sysmon-band', key: 'stats' } as const, null)
@@ -14,14 +14,16 @@ const SEP = ' │ '
 const memo: { previous: CpuTimes | null } = { previous: null }
 
 async function sample($: EngineInterface) {
-  const [usage, proc, df] = await Promise.all([
+  const [usage, proc, df, date] = await Promise.all([
     $.session.usage(),
     $.process.run(['cat', '/proc/stat', '/proc/meminfo']),
     $.process.run(['df', '-B1', '--output=used,avail', '/']),
+    $.process.run(['date', '+%d/%m/%Y %H:%M']),
   ])
   const cpu = parseCpu(proc.stdout)
   const { ram, swap } = parseMem(proc.stdout)
   const next: Stats = {
+    time: parseTime(date.stdout),
     costUsd: usage.cost?.usd ?? null,
     contextPercent: usage.context.percent ?? null,
     fiveHour: usage.rateLimits.find(r => r.kind === 'five_hour')?.percentUsed ?? null,
@@ -92,7 +94,9 @@ export const register: Register = on => {
       ]
         .filter(Boolean)
         .join(' ')
+    const clock = s.time === null ? '' : `${s.time}${SEP}`
     const length = (bar: boolean, tail: boolean) =>
+      clock.length +
       `Sessão ${consumption || '—'}`.length +
       items.reduce((n, it) => n + SEP.length + text(it, bar, tail).length, 0)
 
@@ -102,6 +106,7 @@ export const register: Register = on => {
 
     return (
       <Box>
+        {clock ? <Text bold>{s.time}<Text dimColor>{SEP}</Text></Text> : ''}
         <Text dimColor>Sessão {consumption || '—'}</Text>
         {items.map(it => (
           <Text key={it.label}>

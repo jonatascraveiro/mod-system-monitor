@@ -50,3 +50,8 @@ export const barCells = (percent: number, width: number): number =>
   Math.round((Math.max(0, Math.min(100, percent)) / 100) * width)
 
 export const gib = (bytes: number): string => (bytes / 1024 ** 3).toFixed(1)
+
+export const parseTime = (date: string): string | null => {
+  const time = date.trim()
+  return /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(time) ? time : null
+}
