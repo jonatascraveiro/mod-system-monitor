@@ -74,6 +74,7 @@ ou `claude plugin uninstall sysmon-band`.
 hooks/register.tsx                sessão, timer de 2 s e desenho da faixa
 hooks/metrics.ts                  leitura de hora/CPU/RAM/Swap, cores e barras
 hooks/metrics.test.ts             testes das métricas
+hooks/register.test.tsx           testes da faixa (convivência com outros mods)
 types/index.d.ts                  contrato do estado do mod
 ```
 

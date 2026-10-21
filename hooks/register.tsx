@@ -52,6 +52,7 @@ export const register: Register = on => {
     const s = await read($, stats)
     if (e.props.hasSurvey || s === null) return next(e)
 
+    const below = await next(e)
     const { Box, Text } = $.ui.resolve(e)
 
     const pct = (v: number | null, label: string) =>
@@ -105,25 +106,28 @@ export const register: Register = on => {
     const tail = bar || length(false, true) <= room
 
     return (
-      <Box>
-        {clock ? <Text bold>{s.time}<Text dimColor>{SEP}</Text></Text> : ''}
-        <Text dimColor>Sessão {consumption || '—'}</Text>
-        {items.map(it => (
-          <Text key={it.label}>
-            <Text dimColor>{SEP}</Text>
-            <Text dimColor>{it.label} </Text>
-            {it.percent === null ? (
-              <Text dimColor>{bar ? '░'.repeat(BAR) + ' ' : ''}…</Text>
-            ) : (
-              <Text color={levelColor(it.percent)}>
-                {bar ? '█'.repeat(barCells(it.percent, BAR)) : ''}
-                {bar ? <Text dimColor>{'░'.repeat(BAR - barCells(it.percent, BAR))}</Text> : ''}
-                {`${bar ? ' ' : ''}${it.percent.toFixed(0)}%`}
-              </Text>
-            )}
-            {tail && it.tail ? <Text dimColor>{` ${it.tail}`}</Text> : ''}
-          </Text>
-        ))}
+      <Box flexDirection="column">
+        <Box>
+          {clock ? <Text bold>{s.time}<Text dimColor>{SEP}</Text></Text> : ''}
+          <Text dimColor>Sessão {consumption || '—'}</Text>
+          {items.map(it => (
+            <Text key={it.label}>
+              <Text dimColor>{SEP}</Text>
+              <Text dimColor>{it.label} </Text>
+              {it.percent === null ? (
+                <Text dimColor>{bar ? '░'.repeat(BAR) + ' ' : ''}…</Text>
+              ) : (
+                <Text color={levelColor(it.percent)}>
+                  {bar ? '█'.repeat(barCells(it.percent, BAR)) : ''}
+                  {bar ? <Text dimColor>{'░'.repeat(BAR - barCells(it.percent, BAR))}</Text> : ''}
+                  {`${bar ? ' ' : ''}${it.percent.toFixed(0)}%`}
+                </Text>
+              )}
+              {tail && it.tail ? <Text dimColor>{` ${it.tail}`}</Text> : ''}
+            </Text>
+          ))}
+        </Box>
+        {below}
       </Box>
     )
   })
