@@ -1,0 +1,6 @@
+{
+  "name": "sysmon-band",
+  "version": "0.1.0",
+  "description": "Faixa acima do prompt com consumo da sessão, CPU, RAM e swap em barras verde/laranja/vermelho",
+  "types": "./types/index.d.ts"
+}

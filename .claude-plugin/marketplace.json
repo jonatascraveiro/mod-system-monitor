@@ -1,0 +1,5 @@
+{
+  "name": "mod-system-monitor",
+  "owner": { "name": "jonatascraveiro" },
+  "plugins": [{ "name": "sysmon-band", "source": "./" }]
+}
