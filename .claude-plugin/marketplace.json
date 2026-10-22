@@ -1,5 +1,8 @@
 {
   "name": "mod-system-monitor",
   "owner": { "name": "jonatascraveiro" },
-  "plugins": [{ "name": "sysmon-band", "source": "./" }]
+  "plugins": [
+    { "name": "sysmon-band", "source": "./mods/sysmon-band" },
+    { "name": "sessoes-ativas", "source": "./mods/sessoes-ativas" }
+  ]
 }
