@@ -1,6 +1,6 @@
 {
   "name": "sessoes-ativas",
-  "version": "0.1.0",
-  "description": "Painel com as sessões do Claude Code ativas nesta máquina e o resumo da tarefa de cada uma",
+  "version": "0.2.1",
+  "description": "Painel com as sessões do Claude Code ativas nesta máquina, o resumo, o tipo de tarefa e a linguagem de cada uma",
   "types": "./types/index.d.ts"
 }

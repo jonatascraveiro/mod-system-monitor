@@ -1,11 +1,12 @@
 # sessoes-ativas
 
-Mod do Claude Code com um **painel das sessões ativas nesta máquina**: projeto, branch, card Jira, há quanto tempo está aberta, título e último prompt de cada uma.
+Mod do Claude Code com um **painel das sessões ativas nesta máquina**: projeto, branch, card Jira, há quanto tempo está aberta, tipo de tarefa, linguagem, título e último prompt de cada uma.
 
 ## O que faz
 
 - Abre o painel **Sessões ativas** com o comando `/sessoes`, atualizado a cada 10 segundos.
 - Para cada sessão: nome, status, projeto, branch atual, card Jira (detectado no título/prompt) e idade.
+- **Tipo de tarefa** (codificação, análise, review, segurança, testes, correção, documentação, planejamento) e **linguagens** (ts, python, sql, php...) em que a sessão está atuando, deduzidos por heurística da transcrição: skill ou slash command usado, palavras-chave do último prompt, ferramentas e extensões dos arquivos lidos/editados.
 - **Enviar mensagem**: escreve no campo da sessão e tecla Enter para mandar o texto a ela.
 - **Ver conversa**: mostra as últimas mensagens da sessão.
 - **Encerrar**: aparece só em sessões paradas que não são a atual; pede confirmação e confere se o pid ainda é do mesmo processo antes de enviar `SIGTERM`.

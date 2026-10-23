@@ -29,9 +29,40 @@ const TRANSCRIPT_A = [
   '{"type":"ai-title","aiTitle":"Título antigo"}',
   '{"type":"last-prompt","lastPrompt":"corrige o carimbo do GEODOC-1234"}',
   '{"type":"ai-title","aiTitle":"Migração do carimbo"}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/proj/web/src/Carimbo.tsx"}}]}}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"psql -c \\"select 1\\""}}]}}',
 ].join('\n')
 
-const stubEngine = (on: any, sent: unknown[], runs: string[][] = [], procStart = '777', answer = 'Encerrar') => {
+const TRANSCRIPT_D = [
+  '{"type":"user","message":{"role":"user","content":"como funciona o importador?"}}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Read","input":{"file_path":"/proj/api/importer.py"}}]}}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Grep","input":{"pattern":"x","glob":"**/*.py"}}]}}',
+].join('\n')
+
+const TRANSCRIPT_SECURITY = [
+  '{"type":"user","message":{"role":"user","content":"<command-name>/security-review</command-name>"}}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/proj/api/app/Http/Kernel.php"}}]}}',
+].join('\n')
+
+const TRANSCRIPT_INTERRUPTED = [
+  '{"type":"user","message":{"role":"user","content":"faz uma revisão do PR"}}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"grep -rn this.constructor src"}}]}}',
+  '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"[Request interrupted by user]"}]}}',
+].join('\n')
+
+const TRANSCRIPT_SKILL = [
+  '{"type":"user","message":{"role":"user","content":"segue o plano"}}',
+  '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"superpowers:executing-plans"}}]}}',
+].join('\n')
+
+const stubEngine = (
+  on: any,
+  sent: unknown[],
+  runs: string[][] = [],
+  procStart = '777',
+  answer = 'Encerrar',
+  transcriptD = TRANSCRIPT_D,
+) => {
   on('command.register', () => ({ value: { command: 'sessoes' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('clock.every', () => ({ value: {} }))
@@ -54,7 +85,8 @@ const stubEngine = (on: any, sent: unknown[], runs: string[][] = [], procStart =
     if (e.argv[0] === 'kill') return { value: { exitCode: 0, stdout: '', stderr: '' } }
     const isGit = e.argv[0] === 'git'
     const branch = e.argv[2] === '/proj/api' ? 'feat/geodoc-77-carimbo\n' : 'dev\n'
-    const transcript = String(e.argv.at(-1)).includes('aaa') ? TRANSCRIPT_A : ''
+    const file = String(e.argv.at(-1))
+    const transcript = file.includes('aaa') ? TRANSCRIPT_A : file.includes('ddd') ? transcriptD : ''
     return { value: { exitCode: 0, stdout: isGit ? branch : transcript, stderr: '' } }
   })
   on('session.send', (_: unknown, e: unknown) => {
@@ -162,5 +194,62 @@ test('deve mostrar Encerrar só em sessões paradas que não são a atual', asyn
   expect(await ui.find({ type: 'Button', key: 'stop-ddd' })).toBeTruthy()
   expect(await ui.find({ type: 'Button', key: 'stop-aaa' })).toBeFalsy()
   expect(await ui.find({ type: 'Button', key: 'stop-bbb' })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('deve mostrar o tipo de tarefa e as linguagens de cada sessão', async ($, on) => {
+  stubEngine(on, [])
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'sessoes', args: '' })
+
+  const ui = await $.ui.mount(PANE)
+  expect(await ui.find({ type: 'Text', text: /\[review\]/ })).toBeTruthy()
+  expect((await ui.find({ type: 'Text', text: /ts · sql/ }))?.text).toContain('ts · sql')
+  expect(await ui.find({ type: 'Text', text: /\[análise\]/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: /python/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('deve usar o comando invocado como tipo de tarefa quando o prompt for um slash command', async ($, on) => {
+  stubEngine(on, [], [], '777', 'Encerrar', TRANSCRIPT_SECURITY)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'sessoes', args: '' })
+
+  const ui = await $.ui.mount(PANE)
+  expect(await ui.find({ type: 'Text', text: /\[segurança\]/ })).toBeTruthy()
+  expect(await ui.find({ type: 'Text', text: / php/ })).toBeTruthy()
+  await ui.unmount()
+})
+
+test('não deve mostrar tipo nem linguagem quando a sessão ainda não tem atividade', async ($, on) => {
+  stubEngine(on, [], [], '777', 'Encerrar', '')
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'sessoes', args: '' })
+
+  const ui = await $.ui.mount(PANE)
+  expect(await ui.find({ type: 'Text', text: /\[análise\]/ })).toBeFalsy()
+  expect(await ui.find({ type: 'Text', text: /python/ })).toBeFalsy()
+  await ui.unmount()
+})
+
+test('deve manter o tipo de tarefa quando o usuário interromper e não mostrar chaves do protótipo como linguagem', async ($, on) => {
+  stubEngine(on, [], [], '777', 'Encerrar', TRANSCRIPT_INTERRUPTED)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'sessoes', args: '' })
+
+  const ui = await $.ui.mount(PANE)
+  const line = await ui.find({ type: 'Text', text: /parada/ })
+  expect(line?.text).toContain('[review]')
+  expect(line?.text).not.toContain('function')
+  await ui.unmount()
+})
+
+test('deve classificar como codificação quando a sessão executa um plano via skill', async ($, on) => {
+  stubEngine(on, [], [], '777', 'Encerrar', TRANSCRIPT_SKILL)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'sessoes', args: '' })
+
+  const ui = await $.ui.mount(PANE)
+  expect((await ui.find({ type: 'Text', text: /parada/ }))?.text).toContain('[codificação]')
   await ui.unmount()
 })

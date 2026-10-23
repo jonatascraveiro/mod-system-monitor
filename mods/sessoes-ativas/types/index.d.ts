@@ -12,6 +12,8 @@ export type ActiveSession = {
   startedAt: number
   title?: string
   lastPrompt?: string
+  languages?: string[]
+  taskKind?: string
   isCurrent: boolean
 }
 

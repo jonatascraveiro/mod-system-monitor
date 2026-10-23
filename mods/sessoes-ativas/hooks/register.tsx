@@ -15,6 +15,8 @@ const TRANSCRIPT_TAIL_LINES = '400'
 const CONVERSATION_MESSAGES = 8
 const CONVERSATION_LINE_CHARS = 300
 const PROC_START_FIELD = 19
+const MAX_LANGUAGES = 2
+const EDIT_WEIGHT = 3
 const CONFIRM_STOP = 'Encerrar'
 const CANCEL_STOP = 'Cancelar'
 
@@ -34,6 +36,60 @@ type RegistryEntry = {
 }
 
 type TaskSummary = { title?: string; lastPrompt?: string; jiraCard?: string }
+
+type Activity = { languages: string[]; taskKind?: string }
+
+const LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  ts: 'ts', tsx: 'ts', mts: 'ts', cts: 'ts',
+  js: 'js', jsx: 'js', mjs: 'js', cjs: 'js',
+  py: 'python', ipynb: 'python',
+  sql: 'sql',
+  php: 'php',
+  go: 'go',
+  rs: 'rust',
+  java: 'java', kt: 'kotlin',
+  rb: 'ruby',
+  cs: 'c#',
+  c: 'c', h: 'c', cpp: 'c++', hpp: 'c++',
+  swift: 'swift', dart: 'dart',
+  sh: 'shell', bash: 'shell',
+  css: 'css', scss: 'css',
+  html: 'html', vue: 'vue',
+}
+
+const FILE_EXTENSION = /\.([a-z]+)\b/gi
+
+const COMMAND_LANGUAGES: [RegExp, string][] = [
+  [/\b(psql|mysql|sqlite3)\b/, 'sql'],
+  [/\b(python3?|pytest|pip3?|uv|poetry)\b/, 'python'],
+  [/\b(tsc|vitest|jest)\b/, 'ts'],
+  [/\b(php|artisan|composer)\b/, 'php'],
+  [/\b(go (build|test|run))\b/, 'go'],
+  [/\bcargo\b/, 'rust'],
+]
+
+const TASK_BY_COMMAND: [RegExp, string][] = [
+  [/security-review/, 'segurança'],
+  [/review/, 'review'],
+  [/debugging/, 'correção'],
+  [/(executing-plans|subagent-driven)/, 'codificação'],
+  [/(plan|brainstorming)/, 'planejamento'],
+  [/(biz-doc|summarize|docs-update|obsidian-map|docs)/, 'documentação'],
+  [/(feature|componente|pagina|commit|test-driven)/, 'codificação'],
+]
+
+const TASK_BY_PROMPT: [RegExp, string][] = [
+  [/(seguran[cç]a|security|vulnerab|owasp|pentest|cve\b)/i, 'segurança'],
+  [/(review|revis[aeã]|\bmr\b|merge request)/i, 'review'],
+  [/(\btestes?\b|\btests?\b|cobertura|coverage)/i, 'testes'],
+  [/(\bbug|\berro|\berror|\bfix|corrig|quebr|falha|n[aã]o funciona)/i, 'correção'],
+  [/(documenta|\bdocs?\b|readme)/i, 'documentação'],
+  [/(analis|anális|explica|como funciona|investig|entend|por que|porque|o que é|qual )/i, 'análise'],
+  [/(implement|cri[ae]r?\b|adicion|atualiz|refator|migr|ajust|alter|mud[ae])/i, 'codificação'],
+]
+
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit', 'MultiEdit'])
+const READ_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LSP'])
 
 const toProjectFolder = (cwd: string) => cwd.replace(/[^a-zA-Z0-9]/g, '-')
 
@@ -98,7 +154,85 @@ const toMessageText = (content: unknown) => {
     .join(' ')
 }
 
-const isPromptNoise = (text: string) => /^\s*<(system-reminder|command-|local-command|task-notification)/.test(text)
+const isPromptNoise = (text: string) =>
+  /^\s*(<(system-reminder|command-|local-command|task-notification)|\[Request interrupted)/.test(text)
+
+const commandName = (text: string) => text.match(/<command-name>\/?([^<]+)<\/command-name>/)?.[1]
+
+const firstMatch = (table: [RegExp, string][], text: string) => table.find(([pattern]) => pattern.test(text))?.[1]
+
+const languagesIn = (text: string) => {
+  const found: string[] = []
+  for (const [, extension] of text.matchAll(FILE_EXTENSION)) {
+    const key = extension.toLowerCase()
+    if (Object.hasOwn(LANGUAGE_BY_EXTENSION, key)) found.push(LANGUAGE_BY_EXTENSION[key])
+  }
+  return found
+}
+
+const toolLanguages = (name: string, input: Record<string, unknown>) => {
+  const paths = [input.file_path, input.notebook_path, input.path, input.glob].filter(
+    (value): value is string => typeof value === 'string',
+  )
+  const found = paths.flatMap(languagesIn)
+  if (name === 'Bash' && typeof input.command === 'string') {
+    found.push(...languagesIn(input.command))
+    found.push(...COMMAND_LANGUAGES.filter(([pattern]) => pattern.test(input.command as string)).map(([, lang]) => lang))
+  }
+  return found
+}
+
+const topLanguages = (scores: Map<string, number>) =>
+  [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_LANGUAGES)
+    .map(([language]) => language)
+
+const taskFromTools = (tools: string[]) => {
+  if (tools.some(tool => EDIT_TOOLS.has(tool))) return 'codificação'
+  if (tools.some(tool => READ_TOOLS.has(tool) || tool === 'Bash')) return 'análise'
+  return undefined
+}
+
+const readActivity = async ($: Api, transcript: string): Promise<Activity> => {
+  if (!(await $.fs.exists(transcript))) return { languages: [] }
+  const { stdout } = await $.process.run(['tail', '-n', TRANSCRIPT_TAIL_LINES, transcript])
+  const scores = new Map<string, number>()
+  let promptTask: string | undefined
+  let toolsSincePrompt: string[] = []
+  for (const line of stdout.split('\n')) {
+    if (!line.includes('"tool_use"') && !line.includes('"type":"user"')) continue
+    try {
+      const row = JSON.parse(line)
+      if (row.isSidechain) continue
+      const content = row.message?.content
+      if (row.type === 'user' && !row.isMeta) {
+        const text = toMessageText(content)
+        const command = commandName(text)
+        if (command) {
+          promptTask = firstMatch(TASK_BY_COMMAND, command) ?? promptTask
+          toolsSincePrompt = []
+        } else if (text.trim() && !isPromptNoise(text)) {
+          promptTask = firstMatch(TASK_BY_PROMPT, text) ?? promptTask
+          toolsSincePrompt = []
+        }
+      }
+      if (row.type !== 'assistant' || !Array.isArray(content)) continue
+      for (const block of content) {
+        if (block?.type !== 'tool_use') continue
+        toolsSincePrompt.push(block.name)
+        if (block.name === 'Skill' && typeof block.input?.skill === 'string') {
+          promptTask = firstMatch(TASK_BY_COMMAND, block.input.skill) ?? promptTask
+        }
+        const weight = EDIT_TOOLS.has(block.name) ? EDIT_WEIGHT : 1
+        for (const language of toolLanguages(block.name, block.input ?? {})) {
+          scores.set(language, (scores.get(language) ?? 0) + weight)
+        }
+      }
+    } catch {}
+  }
+  return { languages: topLanguages(scores), taskKind: promptTask ?? taskFromTools(toolsSincePrompt) }
+}
 
 const readConversation = async ($: Api, transcript: string): Promise<ConversationLine[]> => {
   if (!(await $.fs.exists(transcript))) return []
@@ -136,9 +270,10 @@ const collectSessions = async ($: Api): Promise<ActiveSession[]> => {
       .filter((entry): entry is RegistryEntry => entry !== undefined)
       .map(async entry => {
         const transcript = `${claudeDir}/projects/${toProjectFolder(entry.cwd)}/${entry.sessionId}.jsonl`
-        const [summary, branch] = await Promise.all([
+        const [summary, branch, activity] = await Promise.all([
           readTaskSummary($, transcript),
           readBranch($, entry.cwd),
+          readActivity($, transcript),
         ])
         return {
           sessionId: entry.sessionId,
@@ -153,6 +288,7 @@ const collectSessions = async ($: Api): Promise<ActiveSession[]> => {
           startedAt: entry.startedAt,
           isCurrent: entry.sessionId === currentId,
           ...summary,
+          ...activity,
           jiraCard: summary.jiraCard ?? (branch ? findJiraCard(branch.toUpperCase()) : undefined),
         }
       }),
@@ -262,6 +398,8 @@ export const register: Register = on => {
                 {session.status === 'busy' ? '● ' : '○ '}
               </Text>
               <Text bold>{session.name}</Text>
+              {session.taskKind && <Text color="blue"> [{session.taskKind}]</Text>}
+              {session.languages?.length ? <Text color="cyan"> {session.languages.join(' · ')}</Text> : null}
               <Text dimColor>
                 {' '}
                 {session.status} · {formatAge(session.startedAt, now)}
