@@ -26,7 +26,12 @@ test('test_should_keep_band_below_when_another_mod_draws_above_prompt', async ($
     return <Text>outro mod</Text>
   })
   on('session.usage', () => ({
-    value: { startedAt: 0, cost: { usd: 0.88 }, context: { window: 200000, percent: 47 }, rateLimits: [] },
+    value: {
+      startedAt: 0,
+      cost: { usd: 0.88 },
+      context: { window: 200000, percent: 47 },
+      rateLimits: [{ kind: 'five_hour', percentUsed: 9, resetsAt: new Date(Date.now() + 133.5 * 60_000).toISOString() }],
+    },
   }))
   on('process.run', (_, e) => ({
     value: {
@@ -37,6 +42,7 @@ test('test_should_keep_band_below_when_another_mod_draws_above_prompt', async ($
       isStderrTruncated: false,
     },
   }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('clock.every', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
@@ -44,7 +50,7 @@ test('test_should_keep_band_below_when_another_mod_draws_above_prompt', async ($
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
 
-    expect((await ui.find({ type: 'Text', text: /Sessão/ }))?.text).toBe('Sessão $0.88 · ctx 47%')
+    expect((await ui.find({ type: 'Text', text: /Sessão/ }))?.text).toBe('Sessão opus-5-5 · ctx 47% · 5h 9% ↻ 2h14m')
     expect((await ui.find({ type: 'Text', text: /outro mod/ }))?.text).toBe('outro mod')
     await ui.unmount()
   }

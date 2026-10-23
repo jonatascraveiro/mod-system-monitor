@@ -51,6 +51,17 @@ export const barCells = (percent: number, width: number): number =>
 
 export const gib = (bytes: number): string => (bytes / 1024 ** 3).toFixed(1)
 
+const MS_PER_MINUTE = 60_000
+
+export const formatCountdown = (resetsAt: string | null, now: number): string | null => {
+  const target = resetsAt === null ? NaN : Date.parse(resetsAt)
+  if (Number.isNaN(target)) return null
+  const minutes = Math.max(0, Math.ceil((target - now) / MS_PER_MINUTE))
+  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}m`
+}
+
+export const shortModel = (model: string): string => model.replace(/^claude-/, '')
+
 export const parseTime = (date: string): string | null => {
   const time = date.trim()
   return /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(time) ? time : null

@@ -1,6 +1,6 @@
 {
   "name": "sysmon-band",
-  "version": "0.2.1",
-  "description": "Faixa acima do prompt com data e hora, consumo da sessão, CPU, RAM e swap em barras verde/laranja/vermelho",
+  "version": "0.3.0",
+  "description": "Faixa acima do prompt com data e hora, modelo, consumo da sessão com contagem regressiva da janela de 5h, CPU, RAM e swap em barras verde/laranja/vermelho",
   "types": "./types/index.d.ts"
 }

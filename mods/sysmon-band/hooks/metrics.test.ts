@@ -1,6 +1,16 @@
 import { test, expect } from 'claude-code/testing'
 
-import { barCells, cpuPercent, levelColor, parseCpu, parseDisk, parseMem, parseTime } from './metrics'
+import {
+  barCells,
+  cpuPercent,
+  formatCountdown,
+  levelColor,
+  parseCpu,
+  parseDisk,
+  parseMem,
+  parseTime,
+  shortModel,
+} from './metrics'
 
 test('test_should_compute_cpu_percent_when_two_samples_differ', () => {
   const a = parseCpu('cpu  100 0 100 800 0 0 0 0\n')!
@@ -57,4 +67,25 @@ test('test_should_return_null_when_date_output_is_invalid', () => {
   expect(parseTime('')).toBe(null)
   expect(parseTime('date: erro\n')).toBe(null)
   expect(parseTime('14:07\n')).toBe(null)
+})
+
+const NOW = Date.parse('2026-10-23T14:00:00Z')
+
+test('test_should_format_hours_and_minutes_when_window_resets_in_future', () => {
+  expect(formatCountdown('2026-10-23T16:05:00Z', NOW)).toBe('2h05m')
+  expect(formatCountdown('2026-10-23T14:00:30Z', NOW)).toBe('0h01m')
+})
+
+test('test_should_show_zero_when_window_reset_is_past', () => {
+  expect(formatCountdown('2026-10-23T13:00:00Z', NOW)).toBe('0h00m')
+})
+
+test('test_should_return_null_when_reset_time_is_missing_or_invalid', () => {
+  expect(formatCountdown(null, NOW)).toBe(null)
+  expect(formatCountdown('amanhã', NOW)).toBe(null)
+})
+
+test('test_should_drop_claude_prefix_when_model_is_full_id', () => {
+  expect(shortModel('claude-opus-5-5')).toBe('opus-5-5')
+  expect(shortModel('Opus 5.5')).toBe('Opus 5.5')
 })

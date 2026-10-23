@@ -1,8 +1,9 @@
 export type Stats = {
   time: string | null
-  costUsd: number | null
+  model: string | null
   contextPercent: number | null
   fiveHour: number | null
+  fiveHourResetsAt: string | null
   sevenDay: number | null
   cpu: number | null
   ram: { used: number; total: number } | null

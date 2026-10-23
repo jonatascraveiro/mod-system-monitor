@@ -3,7 +3,7 @@
 Mod do Claude Code que desenha **uma faixa acima do prompt** com o consumo da sessão e o uso da máquina, sempre em uma linha:
 
 ```
-21/10/2026 14:07 │ Sessão $0.88 · ctx 47% · 5h 9% · 7d 31% │ CPU ███████░░░ 93% │ RAM ██████░░░░ 66% 10.3/15.6 GiB │ Swap ░░░░░░░░░░ 0% desativado │ Disco ██████░░░░ 73% 92.8 GiB livres
+21/10/2026 14:07 │ Sessão opus-5-5 · ctx 47% · 5h 9% ↻ 2h14m · 7d 31% │ CPU ███████░░░ 93% │ RAM ██████░░░░ 66% 10.3/15.6 GiB │ Swap ░░░░░░░░░░ 0% desativado │ Disco ██████░░░░ 73% 92.8 GiB livres
 ```
 
 ![Demonstração](docs/demo.gif)
@@ -15,7 +15,9 @@ Mod do Claude Code que desenha **uma faixa acima do prompt** com o consumo da se
 | Item | Origem |
 | --- | --- |
 | Data e hora corrente (DD/MM/AAAA HH:MM) | `date`, no fuso local da máquina |
-| Custo (`$`), contexto (`ctx`), limites de 5h e 7d | uso da sessão no Claude Code |
+| Modelo da sessão (sem o prefixo `claude-`) | modelo em uso, como o `/model` mostra |
+| Contexto (`ctx`), limites de 5h e 7d | uso da sessão no Claude Code |
+| Tempo até a janela de 5h reiniciar (`↻ 2h14m`, horas e minutos) | horário de reinício informado pelo Claude Code |
 | CPU | `/proc/stat`, variação entre duas leituras |
 | RAM e Swap | `/proc/meminfo` (RAM usada = total − disponível) |
 | Disco | `df` da partição `/`: percentual usado e espaço livre em GiB |
